@@ -2,6 +2,64 @@
 
 A professional-grade framework enabling game developers and modders to safely create, test, and distribute game modifications. Built with security, stability, and performance in mind.
 
+## Quick Start Guide
+
+### Installation
+```bash
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install the framework
+pip install -e .
+
+# Run tests to verify installation
+pytest
+```
+
+### Basic Usage Example
+```python
+from modding_framework import ModFramework
+
+# Initialize the framework
+mod = ModFramework()
+
+# Example 1: Safe Memory Modification
+def patch_health_function():
+    # Find health update function
+    health_addr = 0x140002000  # Example address
+    
+    # Validate memory region
+    if not mod.validate_memory_region(health_addr, 5):
+        raise ValueError("Invalid memory region")
+    
+    # Create a hook that prevents health reduction
+    original = mod.read_memory(health_addr, 5)
+    if not mod.register_hook(health_addr, original):
+        raise RuntimeError("Hook registration failed")
+    
+    # Apply patch atomically with rollback support
+    nop_sequence = b"\x90" * 5
+    success, error = mod.validate_modification(health_addr, nop_sequence)
+    if not success:
+        print(f"Validation failed: {error}")
+        return False
+    
+    return mod.atomic_patch(health_addr, nop_sequence)
+
+# Example 2: Asset Management
+def load_custom_model():
+    # Register custom model dependencies
+    mod.add_asset_dependency("custom_char.mdl", "char_animations.pak")
+    mod.add_asset_dependency("char_animations.pak", "base_assets.pak")
+    
+    # Verify and load assets in correct order
+    if not mod.verify_asset_graph():
+        raise ValueError("Invalid asset dependencies")
+    
+    return mod.load_assets_topological()
+```
+
 ## Introduction
 
 The Advanced Game Modding Framework is designed for:
@@ -22,6 +80,19 @@ The Advanced Game Modding Framework is designed for:
 - **High Performance**: Lock-free algorithms for minimal overhead
 - **Easy to Learn**: Comprehensive documentation and examples
 - **Active Community**: Regular updates and security patches
+
+### Security Considerations
+- All memory modifications are cryptographically verified
+- Thread-safe operations prevent race conditions
+- Automatic rollback on failed modifications
+- Comprehensive security model documented in [SECURITY.md](docs/SECURITY.md)
+
+## Contributing
+Please read our [Contributing Guide](docs/CONTRIBUTING.md) for details on:
+- Code style and standards
+- Pull request process
+- Testing requirements
+- Security guidelines
 
 ## Core Components and Mathematical Foundations
 
