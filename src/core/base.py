@@ -58,6 +58,19 @@ class ModFramework:
 
         Returns:
             bool: True if hook was registered successfully
+
+        Raises:
+            ValueError: If address is None or original_bytes is empty
         """
-        # Implementation will handle hook registration with safety checks
-        raise NotImplementedError
+        if address is None:
+            raise ValueError("Hook address cannot be None")
+        if not original_bytes:
+            raise ValueError("Original bytes cannot be empty")
+            
+        # Check if hook already exists
+        if address in self._hooks:
+            return False
+            
+        # Store original bytes for potential restoration
+        self._hooks[address] = original_bytes
+        return True
