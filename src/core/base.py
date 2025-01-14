@@ -36,8 +36,18 @@ class ModFramework:
         Returns:
             bool: True if region is safe to modify, False otherwise
         """
-        # Implementation will check for overlaps and validate memory safety
-        raise NotImplementedError
+        # Check if the new region overlaps with any existing regions
+        end_address = address + size
+        
+        for region_start in self._memory_regions:
+            # Assume each region is 1 page (4096 bytes) for basic implementation
+            region_end = region_start + 4096
+            
+            # Check for overlap: new region starts before existing ends and ends after existing starts
+            if address < region_end and end_address > region_start:
+                return False
+                
+        return True
 
     def register_hook(self, address: int, original_bytes: bytes) -> bool:
         """Register a new hook at the specified address.
