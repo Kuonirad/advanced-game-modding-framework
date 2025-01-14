@@ -14,9 +14,9 @@ class ModFramework:
 
     def __init__(self) -> None:
         """Initialize the modding framework with empty tracking structures."""
-        self._memory_regions: Set[int] = set()  # Track modified memory regions
-        self._hooks: Dict[int, bytes] = {}  # Track active hooks
-        self._assets: Dict[str, List[str]] = {}  # Track asset dependencies
+        self._memory_regions: Set[int] = set()  # Set of addresses of modified memory regions
+        self._hooks: Dict[int, bytes] = {}      # Maps hook addresses to original bytes
+        self._assets: Dict[str, List[str]] = {} # Maps asset IDs to their dependencies
     def validate_memory_region(self, address: int, size: int) -> bool:
         """Validate if a memory region is safe to modify.
 
