@@ -1,5 +1,15 @@
+# Core dependencies
+cryptography>=41.0.0
+
+# Testing dependencies
 pytest==7.4.4
 pytest-cov==4.1.0
+
+# Code quality
 mypy==1.8.0
 black==23.12.1
 pylint==3.0.3
+
+# Security tools
+bandit>=1.7.0
+safety>=2.3.0

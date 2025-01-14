@@ -11,6 +11,14 @@ max-line-length = 79
 ignore = ["E203", "W503"]
 exclude = [".git", "__pycache__", "build", "dist"]
 
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]  # Skip assert warnings in tests
+
+[tool.safety]
+ignore_vulnerabilities = []
+ignore_scopes = ["dev-dependencies"]
+
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
