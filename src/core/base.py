@@ -5,6 +5,7 @@ safe game modifications with memory integrity checks.
 """
 
 from typing import Dict, List, Optional, Set, Tuple
+import threading
 
 
 class ModFramework:
@@ -28,6 +29,7 @@ class ModFramework:
         self._memory_regions: Set[int] = set()
         self._hooks: Dict[int, bytes] = {}
         self._assets: Dict[str, List[str]] = {}
+        self._lock = threading.Lock()
 
     def validate_memory_region(self, address: int, size: int) -> Tuple[bool, Optional[str]]:
         """Validate if a memory region is safe to modify.
@@ -48,18 +50,23 @@ class ModFramework:
             raise ValueError("Memory address cannot be negative")
         if size <= 0:
             raise ValueError("Memory region size must be positive")
-        # Check if the new region overlaps with any existing regions
-        end_address = address + size
         
-        for region_start in self._memory_regions:
-            # Assume each region is 1 page (4096 bytes) for basic implementation
-            region_end = region_start + 4096
+        with self._lock:
+            # Check if the new region overlaps with any existing regions
+            end_address = address + size
             
-            # Check for overlap: new region starts before existing ends and ends after existing starts
-            if address < region_end and end_address > region_start:
-                return False, f"Region overlaps with existing region at 0x{region_start:x}"
+            for region_start in self._memory_regions:
+                # Assume each region is 1 page (4096 bytes) for basic implementation
+                region_end = region_start + 4096
                 
-        return True, None
+                # Check for overlap: new region starts before existing ends and ends after existing starts
+                if address < region_end and end_address > region_start:
+                    return False, f"Region overlaps with existing region at 0x{region_start:x}"
+
+            # If no overlap, add the new region to the set
+            self._memory_regions.add(address)
+
+            return True, None
 
     def register_hook(self, address: int, original_bytes: bytes) -> bool:
         """Register a new hook at the specified address.

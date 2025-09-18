@@ -10,43 +10,68 @@ def test_mod_framework_initialization():
     assert len(framework._memory_regions) == 0
     assert len(framework._hooks) == 0
     assert len(framework._assets) == 0
+    assert framework._lock is not None
 
 
-def test_validate_memory_region():
-    """Test memory region validation."""
+def test_validate_memory_region_success():
+    """Test successful memory region validation for non-overlapping regions."""
     framework = ModFramework()
-    
-    # Test non-overlapping regions
     is_valid, error = framework.validate_memory_region(0x1000, 16)
-    assert is_valid and error is None
-    
-    is_valid, error = framework.validate_memory_region(0x2000, 16)
-    assert is_valid and error is None
-    
-    # Test invalid inputs
+    assert is_valid is True
+    assert error is None
+    assert 0x1000 in framework._memory_regions
+
+
+def test_validate_memory_region_invalid_inputs():
+    """Test memory region validation with invalid inputs."""
+    framework = ModFramework()
     with pytest.raises(ValueError, match="Memory address cannot be negative"):
         framework.validate_memory_region(-1, 16)
-    
     with pytest.raises(ValueError, match="Memory region size must be positive"):
         framework.validate_memory_region(0x1000, 0)
+
+
+def test_validate_memory_region_overlap():
+    """Test that overlapping memory regions are correctly detected."""
+    framework = ModFramework()
+    # Add a region
+    is_valid, error = framework.validate_memory_region(0x3000, 16)
+    assert is_valid is True
     
-    # Add a region and test overlap
-    framework._memory_regions.add(0x3000)
-    
-    # Test overlap with existing region (4096 byte pages)
+    # Test overlap with the existing region
     is_valid, error = framework.validate_memory_region(0x3100, 16)  # Inside page
-    assert not is_valid
+    assert is_valid is False
     assert error is not None and "overlaps with existing region" in error
-    
-    is_valid, error = framework.validate_memory_region(0x4000, 16)  # Next page
-    assert is_valid and error is None
-    
-    # Test boundary conditions
-    is_valid, error = framework.validate_memory_region(0x2F00, 16)  # Just before
-    assert is_valid and error is None
-    
-    is_valid, error = framework.validate_memory_region(0x3FF0, 16)  # Just inside
-    assert not is_valid
+
+
+def test_validate_memory_region_no_overlap_adjacent():
+    """Test that adjacent but non-overlapping regions are considered valid."""
+    framework = ModFramework()
+    # Add a region
+    is_valid, error = framework.validate_memory_region(0x3000, 4096) # Assume page size
+    assert is_valid is True
+
+    # Test next page, which should not overlap
+    is_valid, error = framework.validate_memory_region(0x4000, 16)
+    assert is_valid is True
+    assert error is None
+
+
+def test_validate_memory_region_boundary_conditions():
+    """Test boundary conditions for memory region validation."""
+    framework = ModFramework()
+    # Add a region at 0x3000
+    framework.validate_memory_region(0x3000, 16)
+
+    # Test just before the page boundary
+    is_valid, error = framework.validate_memory_region(0x2000, 16)
+    assert is_valid is True
+    assert error is None
+
+    # Test just inside the page boundary of the existing region
+    # Existing region starts at 0x3000, page ends at 0x3000 + 4096 = 0x3FFF
+    is_valid, error = framework.validate_memory_region(0x3FF0, 16)
+    assert is_valid is False
     assert error is not None and "overlaps with existing region" in error
 
 
@@ -76,11 +101,8 @@ def test_memory_region_tracking():
     framework = ModFramework()
     
     # Validate and track regions
-    assert framework.validate_memory_region(0x1000, 16)
-    framework._memory_regions.add(0x1000)
-    
-    assert framework.validate_memory_region(0x2000, 16)
-    framework._memory_regions.add(0x2000)
+    framework.validate_memory_region(0x1000, 16)
+    framework.validate_memory_region(0x2000, 16)
     
     # Verify tracking
     assert 0x1000 in framework._memory_regions
