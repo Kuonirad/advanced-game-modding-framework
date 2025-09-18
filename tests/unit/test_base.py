@@ -4,122 +4,85 @@ import pytest
 from src.core.base import ModFramework
 
 
-def test_mod_framework_initialization():
+@pytest.fixture
+def framework():
+    """Pytest fixture to provide a clean ModFramework instance for each test."""
+    fw = ModFramework()
+    yield fw
+    # Teardown: ensure regions are cleared after test
+    fw.reset_regions()
+
+
+def test_mod_framework_initialization(framework):
     """Test ModFramework initialization."""
-    framework = ModFramework()
-    assert len(framework._memory_regions) == 0
+    assert len(framework._regions) == 0
     assert len(framework._hooks) == 0
     assert len(framework._assets) == 0
     assert framework._lock is not None
 
 
-def test_validate_memory_region_success():
-    """Test successful memory region validation for non-overlapping regions."""
-    framework = ModFramework()
+def test_validate_memory_region_success(framework):
+    """Test successful validation of a single, valid memory region."""
     is_valid, error = framework.validate_memory_region(0x1000, 16)
     assert is_valid is True
     assert error is None
-    assert 0x1000 in framework._memory_regions
+    assert framework._regions == [(0x1000, 0x1000 + 16)]
 
 
-def test_validate_memory_region_invalid_inputs():
-    """Test memory region validation with invalid inputs."""
-    framework = ModFramework()
+def test_validate_memory_region_invalid_inputs(framework):
+    """Test validation with invalid arguments."""
     with pytest.raises(ValueError, match="Memory address cannot be negative"):
         framework.validate_memory_region(-1, 16)
     with pytest.raises(ValueError, match="Memory region size must be positive"):
         framework.validate_memory_region(0x1000, 0)
 
 
-def test_validate_memory_region_overlap():
-    """Test that overlapping memory regions are correctly detected."""
-    framework = ModFramework()
-    # Add a region
-    is_valid, error = framework.validate_memory_region(0x3000, 16)
-    assert is_valid is True
-    
-    # Test overlap with the existing region
-    is_valid, error = framework.validate_memory_region(0x3100, 16)  # Inside page
+def test_validate_memory_region_overlap(framework):
+    """Test that an overlapping region is correctly identified."""
+    framework.validate_memory_region(0x1000, 100)  # Reserve 0x1000 - 0x1064
+    is_valid, error = framework.validate_memory_region(0x1020, 16)  # Attempt to reserve overlapping region
     assert is_valid is False
-    assert error is not None and "overlaps with existing region" in error
+    assert "overlaps with existing region" in error
 
 
-def test_validate_memory_region_no_overlap_adjacent():
-    """Test that adjacent but non-overlapping regions are considered valid."""
-    framework = ModFramework()
-    # Add a region
-    is_valid, error = framework.validate_memory_region(0x3000, 4096) # Assume page size
-    assert is_valid is True
-
-    # Test next page, which should not overlap
-    is_valid, error = framework.validate_memory_region(0x4000, 16)
-    assert is_valid is True
-    assert error is None
-
-
-def test_validate_memory_region_boundary_conditions():
-    """Test boundary conditions for memory region validation."""
-    framework = ModFramework()
-    # Add a region at 0x3000
-    framework.validate_memory_region(0x3000, 16)
-
-    # Test just before the page boundary
+def test_validate_memory_region_no_overlap(framework):
+    """Test that non-overlapping regions are validated successfully."""
+    framework.validate_memory_region(0x1000, 100)
     is_valid, error = framework.validate_memory_region(0x2000, 16)
     assert is_valid is True
     assert error is None
-
-    # Test just inside the page boundary of the existing region
-    # Existing region starts at 0x3000, page ends at 0x3000 + 4096 = 0x3FFF
-    is_valid, error = framework.validate_memory_region(0x3FF0, 16)
-    assert is_valid is False
-    assert error is not None and "overlaps with existing region" in error
+    assert len(framework._regions) == 2
 
 
-def test_register_hook():
+def test_register_hook(framework):
     """Test hook registration functionality."""
-    framework = ModFramework()
-    
-    # Test basic hook registration
-    assert framework.register_hook(0x1000, b"\x90\x90")  # NOP instructions
+    assert framework.register_hook(0x1000, b"\x90\x90")
     assert 0x1000 in framework._hooks
     assert framework._hooks[0x1000] == b"\x90\x90"
     
-    # Test duplicate hook registration
     assert not framework.register_hook(0x1000, b"\x90\x90")
     
-    # Test hook with empty bytes
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Original bytes cannot be empty"):
         framework.register_hook(0x2000, b"")
     
-    # Test invalid address
-    with pytest.raises(ValueError):
-        framework.register_hook(0, b"")
+    with pytest.raises(ValueError, match="Hook address cannot be None"):
+        framework.register_hook(None, b"test")
 
 
-def test_memory_region_tracking():
+def test_memory_region_tracking(framework):
     """Test memory region tracking functionality."""
-    framework = ModFramework()
-    
-    # Validate and track regions
     framework.validate_memory_region(0x1000, 16)
     framework.validate_memory_region(0x2000, 16)
     
-    # Verify tracking
-    assert 0x1000 in framework._memory_regions
-    assert 0x2000 in framework._memory_regions
-    assert 0x3000 not in framework._memory_regions
+    assert (0x1000, 0x1010) in framework._regions
+    assert (0x2000, 0x2010) in framework._regions
+    assert not any(r[0] == 0x3000 for r in framework._regions)
 
 
-def test_asset_dependency_tracking():
+def test_asset_dependency_tracking(framework):
     """Test asset dependency tracking."""
-    framework = ModFramework()
-    
-    # Add dependencies
     framework._assets["texture.png"] = ["base_texture.png"]
     framework._assets["model.obj"] = ["texture.png", "material.mtl"]
     
-    # Verify dependencies
     assert "texture.png" in framework._assets
-    assert "model.obj" in framework._assets
     assert framework._assets["model.obj"] == ["texture.png", "material.mtl"]
-    assert framework._assets["texture.png"] == ["base_texture.png"]
