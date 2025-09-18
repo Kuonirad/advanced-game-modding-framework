@@ -16,14 +16,14 @@ def test_concurrent_memory_validation():
     validator = SecurityValidator()
     
     # Test addresses and data
-    addresses = [0x1000, 0x2000, 0x3000, 0x4000]
+    addresses = [0x1000, 0x1010, 0x1020, 0x1030]  # These addresses are within the same 4k page
     test_data = b"test data"
     results = []
     
     def validate_region(address):
         """Validate memory region in a thread."""
         # Validate memory region
-        is_valid = framework.validate_memory_region(address, len(test_data))
+        is_valid, _ = framework.validate_memory_region(address, len(test_data))
         # Validate modification if region is valid
         if is_valid:
             success, _ = validator.validate_modification(address, test_data)
