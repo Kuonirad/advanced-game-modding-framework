@@ -92,12 +92,12 @@ class AtomicModifier:
 
         Args:
             address: Start address of region to release
+
+        Raises:
+            KeyError: If the address is not an active region.
         """
         with self._global_lock:
-            regions = [hex(addr) for addr in self._active_regions.keys()]
-            print(f"\nBefore release - Active regions: {regions}")
-            if address in self._region_locks:
-                del self._region_locks[address]
-                del self._active_regions[address]
-            regions = [hex(addr) for addr in self._active_regions.keys()]
-            print(f"After release - Active regions: {regions}\n")
+            if address not in self._active_regions:
+                raise KeyError(f"Address {hex(address)} is not an active region.")
+            del self._region_locks[address]
+            del self._active_regions[address]

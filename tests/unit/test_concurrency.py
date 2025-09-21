@@ -1,5 +1,5 @@
 """Unit tests for concurrency control and atomic operations."""
-
+import pytest
 from src.concurrency.atomic import AtomicModifier
 
 
@@ -58,3 +58,11 @@ def test_ensure_thread_safety():
     modifier.release_region(0x1000)
     # Try to lock a region that doesn't overlap with 0x2000-0x3000
     assert modifier.ensure_thread_safety(0x1000, 4096) is True
+
+
+def test_release_non_existent_region():
+    """Test that releasing a non-existent region raises an error."""
+    modifier = AtomicModifier()
+    modifier.ensure_thread_safety(0x1000, 100)
+    with pytest.raises(KeyError, match="Address 0x2000 is not an active region."):
+        modifier.release_region(0x2000)
